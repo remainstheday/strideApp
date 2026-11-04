@@ -289,6 +289,9 @@ export interface StrideBridge {
   touchable?(json: string): void;
   /** Over an app: back to STRIDE full screen. */
   closeApp?(): void;
+  /** The profile a desktop last sent over adb, cleaned, as JSON; "{}" for
+   *  none (docs/REMOTE.md). Optional: an older APK has none. */
+  profile?(): string;
 }
 
 /** One app the console can open. `icon` is a PNG data URL, or empty. */
@@ -342,6 +345,8 @@ declare global {
     /** Kotlin: a kind the page asked for has been read; ok is false when
      *  TrailMate could not be reached and the console's last copy stands. */
     trailmateRead: (kind: TrailMateKind, ok: boolean) => void;
+    /** A new profile from a desktop, or {} after a reset (docs/REMOTE.md). */
+    applyProfile: (p: unknown) => void;
     /** Calls Kotlin made before the app module ran; see trailmate.html. */
     __early?: { render?: SessionState; plan?: Plan };
   }

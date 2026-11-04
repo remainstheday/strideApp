@@ -279,6 +279,7 @@ installed, belt idle" is worth knowing; so is "not run on yet".
 | `…/hud/FitPro.kt`, `FitPro2.kt` | Gen 6 and Gen 7 protocols: framing only, no I/O |
 | `…/hud/FitPro2Board.kt` | Makes a Gen 7 board look like a Gen 6 one to the poll loop |
 | `…/hud/SimBoard.kt` | The simulated Gen 7 board (debug) |
+| `…/hud/RemoteProfile.kt` | A profile sent from a desktop over adb: see [REMOTE.md](REMOTE.md) |
 | `console/usbprobe/` | Read-only board identifier |
 | `protocol/` | The two protocols, written down |
 | `treadmills/` | What each generation and machine is like |

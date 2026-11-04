@@ -173,6 +173,27 @@ class Settings(context: Context) {
         val KNOWN = PERSONAL + setOf(
             DEFAULT_RUNNER, ALLOW_GUEST, TRAILMATE_URL, SLEEP_MIN, CLOCK_24, BRIGHTNESS, KEEP_AWAKE,
         )
+
+        /** What each setting reads as when nobody has set it, as stored text.
+         *  Matches the getters below; [consoleValues] reports from it. */
+        val DEFAULTS: Map<String, String> = linkedMapOf(
+            ALLOW_GUEST to "true",
+            UNITS to "km",
+            WARMUP_MIN to "2",
+            COOLDOWN_MIN to "2",
+            WARMUP_KPH to "2.0",
+            INCLINE_RATE to "normal",
+            WORKOUT_SPEED_LIMIT to "0.0",
+            HR_SOURCE to "auto",
+            HR_ADDR to "", HR_NAME to "",
+            POD_ADDR to "", POD_NAME to "",
+            PHONES_ADDR to "", PHONES_NAME to "",
+            TRAILMATE_URL to TRAILMATE_DEFAULT_URL,
+            SLEEP_MIN to "5",
+            CLOCK_24 to "true",
+            BRIGHTNESS to "normal",
+            KEEP_AWAKE to "true",
+        )
     }
 
     // --- people ---------------------------------------------------------------
@@ -383,18 +404,49 @@ class Settings(context: Context) {
      * is read, so nothing the page sends can make a later read throw.
      */
     fun set(key: String, value: String) {
+        val clean = clean(key, value) ?: return
+        write(scopeFor(key), mapOf(key to clean))
+    }
+
+    /**
+     * Save one value as the console's own, whoever is running: a profile
+     * sent from a desktop (RemoteProfile) sets up the machine, not the
+     * runner who happens to be on it. Cleaned exactly as [set] cleans.
+     */
+    fun setConsole(key: String, value: String) {
+        val clean = clean(key, value) ?: return
+        write(Db.CONSOLE, mapOf(key to clean))
+    }
+
+    /** [value] as stored for [key], or null for a key nobody may set. */
+    private fun clean(key: String, value: String): String? {
         if (key !in KNOWN) {
             Log.w(TAG, "ignoring unknown setting '$key'")
-            return
+            return null
         }
-        val clean = when (key) {
+        return when (key) {
             ALLOW_GUEST, CLOCK_24, KEEP_AWAKE -> (value == "true" || value == "1").toString()
             WARMUP_MIN, COOLDOWN_MIN, SLEEP_MIN -> (value.toIntOrNull() ?: 0).toString()
             WARMUP_KPH -> (value.toDoubleOrNull() ?: 2.0).toString()
             WORKOUT_SPEED_LIMIT -> (value.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0).toString()
             else -> value
         }
-        write(scopeFor(key), mapOf(key to clean))
+    }
+
+    /**
+     * The console's own value for every setting a profile may carry, as
+     * text, defaults filled in — what a desktop shows as "what is loaded".
+     * Read from the console's scope only: a runner's own units are theirs.
+     */
+    fun consoleValues(): JSONObject {
+        val mine = values[Db.CONSOLE] ?: emptyMap()
+        val out = JSONObject()
+        for ((k, def) in DEFAULTS) {
+            // A blank address means production (see [trailmateUrl]): say which.
+            val v = mine[k]?.takeUnless { k == TRAILMATE_URL && it.isBlank() }
+            out.put(k, v ?: def)
+        }
+        return out
     }
 
     /** The runner's own settings go back to the console's. */

@@ -178,6 +178,10 @@ class MainActivity : Activity() {
          */
         const val UI_URL = "file:///android_asset/ui/trailmate.html"
 
+        /** A desktop's request over adb: see [remoteReceiver] and docs/REMOTE.md. */
+        const val ACTION_REMOTE = "dev.stride.hud.REMOTE"
+        const val REMOTE_PERMISSION = "android.permission.DUMP"
+
         /** The launch screen's field colour, painted behind the page. */
         const val FIELD = 0xFF100F0E.toInt()
 
@@ -1640,6 +1644,9 @@ class MainActivity : Activity() {
 
         /** Over an app: back to STRIDE full screen. */
         @JavascriptInterface fun closeApp() = runOnUiThread { overApp.close() }
+
+        /** The profile a desktop last sent (docs/REMOTE.md), cleaned; `{}` for none. */
+        @JavascriptInterface fun profile(): String = storedProfile().toString()
     }
 
     /**
@@ -2725,6 +2732,7 @@ class MainActivity : Activity() {
                 override fun onPageFinished(view: WebView?, url: String?) {
                     if (planSteps.isNotEmpty()) pushPlan()
                     if (overApp.showing) pushOverApp(true)
+                    pushProfile(storedProfile())
                 }
             }
             loadUrl(UI_URL)
@@ -2743,9 +2751,130 @@ class MainActivity : Activity() {
             registerReceiver(permissionReceiver, filter)
         }
 
+        registerRemote()
         registerDebugHooks()
         val s = sim
         if (s != null) startSim(s) else acquireBoard()
+    }
+
+    // --- remote profile (docs/REMOTE.md) ---------------------------------------
+
+    /**
+     * A desktop on the same network, over adb, sets this console up: its look,
+     * the order of the apps under APPS, which ways in the welcome screen
+     * offers, and the console's own settings.
+     *
+     *     adb shell am broadcast -a dev.stride.hud.REMOTE -p dev.stride.hud \
+     *         --es op get
+     *
+     * Guarded by android.permission.DUMP, as [KioskReceiver] is: the shell
+     * holds it and no installable app can, so whoever may send this already
+     * has adb, which is to say everything. Not a debug hook — it is how a
+     * release console is managed — and so it carries nothing that reaches the
+     * belt, and a profile is refused outright while a run is under way: the
+     * screen does not change under somebody standing on the deck.
+     *
+     * The reply is the broadcast's result data, base64 of a JSON object,
+     * because `am broadcast` prints it on one line inside quotes.
+     */
+    private val remoteReceiver = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) {
+            if (i.action != ACTION_REMOTE) return
+            val op = i.getStringExtra("op") ?: ""
+            val data = i.getStringExtra("data")
+            // Off the UI thread: `get` asks the package manager for every
+            // launchable app, and a profile is written to disk.
+            val pending = goAsync()
+            thread(name = "stride-remote") {
+                val reply = try {
+                    remote(op, data)
+                } catch (e: Exception) {
+                    Log.w(TAG, "remote $op failed", e)
+                    JSONObject().put("ok", false).put("error", e.message ?: e.toString())
+                }
+                val encoded = android.util.Base64.encodeToString(
+                    reply.toString().toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
+                pending.setResult(Activity.RESULT_OK, encoded, null)
+                pending.finish()
+            }
+        }
+    }
+
+    private fun registerRemote() {
+        val f = IntentFilter(ACTION_REMOTE)
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(remoteReceiver, f, REMOTE_PERMISSION, null, Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(remoteReceiver, f, REMOTE_PERMISSION, null)
+        }
+    }
+
+    private val profileFile by lazy { java.io.File(filesDir, "remote-profile.json") }
+
+    /** The stored profile, cleaned again on the way out; `{}` for none. */
+    private fun storedProfile(): JSONObject = try {
+        if (profileFile.isFile) RemoteProfile.sanitise(JSONObject(profileFile.readText())) else JSONObject()
+    } catch (e: Exception) {
+        Log.w(TAG, "remote profile unreadable, ignored: ${e.message}")
+        JSONObject()
+    }
+
+    private fun pushProfile(p: JSONObject) = runOnUiThread {
+        web.evaluateJavascript("window.applyProfile && window.applyProfile($p)", null)
+    }
+
+    /** Somebody may be on the deck: mid-run, paused, or the belt still winding down. */
+    private fun runUnderWay(): Boolean =
+        Session.isMoving(session) || session == Session.PAUSED || stopping || beltStillKph() >= STOPPED_KPH
+
+    private fun remote(op: String, data: String?): JSONObject {
+        fun ok() = JSONObject().put("ok", true)
+            .put("version", BuildConfig.VERSION_NAME)
+            .put("session", Session.name(session))
+        Log.i(TAG, "remote: $op")
+        return when (op) {
+            "ping" -> ok()
+            "get" -> ok()
+                .put("schema", "stride.remote.v1")
+                .put("profile", storedProfile())
+                .put("settings", cfg.consoleValues())
+                .put("people", JSONArray().apply { cfg.people().forEach { put(it.name) } })
+                .put("apps", overApp.names())
+                .put("devices", JSONObject(bridge.devicesStatus()))
+                // Status says "linked", never with what (TrailMate.statusJson).
+                // The link's QR is a picture for the console's own screen.
+                .put("trailmate", JSONObject(bridge.trailmateStatus()).apply {
+                    optJSONObject("link")?.remove("qr")
+                })
+            "set" -> {
+                if (runUnderWay()) {
+                    return JSONObject().put("ok", false)
+                        .put("error", "A run is under way. Try again when the belt has stopped.")
+                }
+                val raw = JSONObject(String(android.util.Base64.decode(data ?: "", android.util.Base64.DEFAULT), Charsets.UTF_8))
+                val p = RemoteProfile.sanitise(raw)
+                // Whole or not at all: a profile half-written by a power cut
+                // would be read back as nothing, which is the safe nothing.
+                val tmp = java.io.File(filesDir, "remote-profile.json.tmp")
+                tmp.writeText(p.toString())
+                if (!tmp.renameTo(profileFile)) throw IllegalStateException("could not save the profile")
+                p.optJSONObject("settings")?.let { s ->
+                    val keys = s.keys().asSequence().toList()
+                    for (k in keys) cfg.setConsole(k, s.getString(k))
+                    Log.i(TAG, "remote: settings ${keys.joinToString()}")
+                    applySetting("")
+                    if (Settings.TRAILMATE_URL in keys) trailmate.kick()
+                }
+                pushProfile(p)
+                ok().put("profile", p)
+            }
+            "reset" -> {
+                profileFile.delete()
+                pushProfile(JSONObject())
+                ok()
+            }
+            else -> JSONObject().put("ok", false).put("error", "unknown op")
+        }
     }
 
     /** The page's bridge; the test harness drives the same one. */
@@ -4158,6 +4287,7 @@ class MainActivity : Activity() {
         ftms.stop()
         conn.close()
         try { unregisterReceiver(permissionReceiver) } catch (_: IllegalArgumentException) {}
+        try { unregisterReceiver(remoteReceiver) } catch (_: IllegalArgumentException) {}
         super.onDestroy()
     }
 }

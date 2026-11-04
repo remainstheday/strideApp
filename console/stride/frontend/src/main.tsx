@@ -3,6 +3,7 @@ import { App } from './App';
 import { core } from './bridge/stride';
 import { installKotlinEntryPoints, installModeWatcher, onModeChange } from './bridge/kotlin';
 import { useSession } from './store/session';
+import { installProfileEntryPoint, loadProfile } from './store/profile';
 import { loadSettings } from './store/settings';
 import { useUi } from './store/ui';
 import { initWelcome } from './store/welcome';
@@ -16,9 +17,13 @@ import './theme/global.css';
 const standalone = core().stub();
 
 applyTokens();
+/* A desktop's profile (docs/REMOTE.md) before the first frame, so the
+   console never draws in one look and then another. */
+loadProfile();
 loadSettings();
 initWelcome();
 installKotlinEntryPoints();
+installProfileEntryPoint();
 installModeWatcher();
 onModeChange(useSession.getState().mode);
 

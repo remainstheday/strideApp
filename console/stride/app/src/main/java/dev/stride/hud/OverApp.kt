@@ -105,7 +105,27 @@ class OverApp(
     @Synchronized
     fun list(): String = listed ?: build().also { listed = it }
 
-    private fun build(): String {
+    private fun build(): String = JSONArray().apply {
+        for ((pkg, name, ri) in launchable()) put(JSONObject()
+            .put("pkg", pkg)
+            .put("name", name)
+            .put("icon", icon(ri)))
+    }.toString()
+
+    /**
+     * The same list without icons, asked afresh: for a desktop reading the
+     * console over adb (docs/REMOTE.md), which may just have installed one.
+     * The cached list is dropped too, so APPS shows the new one next time.
+     */
+    @Synchronized
+    fun names(): JSONArray {
+        listed = null
+        return JSONArray().apply {
+            for ((pkg, name, _) in launchable()) put(JSONObject().put("pkg", pkg).put("name", name))
+        }
+    }
+
+    private fun launchable(): List<Triple<String, String, ResolveInfo>> {
         val pm = activity.packageManager
         val found = LinkedHashMap<String, ResolveInfo>()
         for (category in listOf(Intent.CATEGORY_LAUNCHER, Intent.CATEGORY_LEANBACK_LAUNCHER)) {
@@ -115,17 +135,11 @@ class OverApp(
                 if (pkg != activity.packageName && pkg !in found) found[pkg] = ri
             }
         }
-        val named = found.map { (pkg, ri) -> Triple(pkg, ri.loadLabel(pm).toString(), ri) }
+        return found.map { (pkg, ri) -> Triple(pkg, ri.loadLabel(pm).toString(), ri) }
             .sortedWith(compareBy(
                 { FIRST.indexOf(it.first).let { i -> if (i < 0) Int.MAX_VALUE else i } },
                 { it.second.lowercase() },
             ))
-        return JSONArray().apply {
-            for ((pkg, name, ri) in named) put(JSONObject()
-                .put("pkg", pkg)
-                .put("name", name)
-                .put("icon", icon(ri)))
-        }.toString()
     }
 
     private fun icon(ri: ResolveInfo): String = try {

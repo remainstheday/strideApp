@@ -1,4 +1,4 @@
-import { alpha } from '../alpha';
+import { alpha, mix } from '../alpha';
 import type { Theme } from '../types';
 
 /* The console's look: TrailMate, in its dark mode — the TrailMate app's own
@@ -16,11 +16,22 @@ import type { Theme } from '../types';
      hairline = ink at 20 % · raised shadow 0 8px 18px deep(#002C2F) at 50 %
    Where a value is not in that set, it is derived from one that is. */
 
-const deep = '#002C2F'; // BRAND_SEEDS.deep — shadows are cast in it
-const surface = '#08373A'; // SURFACES.surfaceDark
-const c = {
+
+/** The base palette, solid colours. `bg1` is TrailMate's surface. */
+export type Palette = Theme['colour'];
+
+/** The shape of things: what a profile from a desktop may change besides
+ *  colour (docs/REMOTE.md). */
+export interface Shape {
+  radius: Theme['radius'];
+  edgeWidth: number;
+  glowBlur: number;
+  family: string;
+}
+
+export const PALETTE: Palette = {
   bg0: '#001E20', // SURFACES.canvasDark
-  bg1: surface,
+  bg1: '#08373A', // SURFACES.surfaceDark
   ink: '#F9F8E6', // BRAND_SEEDS.offWhite
   inkDim: '#C5D8CF', // textDarkSecondary
   inkFaint: '#85A29E', // textDarkDisabled — still clears 4.5:1 on the canvas
@@ -31,95 +42,125 @@ const c = {
   trackLine: '#324A48', // the hairline (ink at 20 %) made solid over the canvas
 };
 
-export const trailmate: Theme = {
-  id: 'trailmate',
-  colour: c,
-  role: {
-    fill: surface,
-    fillCard: surface,
-    fillQuiet: alpha(surface, 0.5),
-    fillFloating: alpha(surface, 0.98),
-    pressed: alpha(c.accent, 0.24),
-    pressedCard: alpha(c.accent, 0.2), // TINT.overlay
-    selected: alpha(c.accent, 0.2), // TINT.fill — the tonal container
-    active: alpha(c.good, 0.2),
-    edge: alpha(c.ink, 0.2), // surfaces.hairline
-    edgeQuiet: alpha(c.ink, 0.1),
-    scrim: alpha(c.bg0, 0.97),
-    pulse: alpha(c.accent, 0.5),
-    glow: 'transparent',
-    backdropInner: alpha('#0B4A4C', 0.7),
-    backdropMid: alpha(surface, 0.3),
-    shadowRaised: `0 8px 18px ${alpha(deep, 0.5)}`,
-    shadowFloating: `0 16px 32px ${alpha(deep, 0.62)}, 0 4px 10px ${alpha(deep, 0.4)}`,
-    /* Over a film: a translucent black panel under the drawers, so the run
-       reads against any scene and the film still shows through. */
-    fillOverApp: alpha('#000000', 0.55),
-    /* Over a film every word is white: tone colours that read on the teal
-       canvas get lost against a picture. */
-    inkOverApp: '#FFFFFF',
-    sleepBg: '#000',
-    sleepClock: '#0E3134',
-    sleepHint: '#0A2628',
-  },
-  font: {
-    // Roboto is the system face on Android, so nothing has to ship.
-    family: '"Roboto", "Helvetica", "Arial", sans-serif',
-    weightNumeral: 500,
-    weightHeading: 600,
-    weightLabel: 500,
-    weightBody: 400,
-    trackingLabel: '0.08em',
-    trackingNumeral: '-0.01em',
-  },
-  /* TrailMate's workout type colours: its chart palette in dark mode
-     (shared/design, palette.chart; constants/workoutTypes.ts says which role
-     each type takes). Pinned by tokens.test.ts. */
-  workout: {
-    easy: '#6CC89B', // chart.zone2
-    tempo: '#CF7EA8', // chart.tempo
-    intervals: '#E27F79', // chart.zone4
-    hills: '#C198CF', // chart.zone5
-    longRun: '#6FB3E3', // chart.zone1
-    recovery: '#64B28B', // chart.early
-    threshold: '#D89464', // chart.late
-    speed: '#C55E58', // chart.hr
-  },
+export const SHAPE: Shape = {
   radius: { control: 8, chip: 8, card: 8, choice: 8, floating: 8 },
   edgeWidth: 1,
-  settings: {
-    bg: c.bg0,
-    'bg-rgb': '0,30,32',
-    ink: c.ink,
-    'ink-dim': c.inkDim,
-    'ink-faint': c.inkFaint,
-    accent: c.accent,
-    'accent-rgb': '109,164,145',
-    line: c.trackLine,
-    'line-rgb': '50,74,72',
-    'surface-rgb': '8,55,58',
-    alert: c.alert,
-    'alert-rgb': '218,130,123',
-    'alert-ink': '#E5A8A3', // error.light
-    good: c.good,
-    'good-rgb': '78,174,127',
-    warm: c.accentWarm,
-    'warm-rgb': '205,139,101',
-    'kb-bg': '#062F31',
-    'backdrop-inner': alpha('#0B4A4C', 0.7),
-    'backdrop-mid': alpha(surface, 0.3),
-    glow: 'none',
-    font: '"Roboto", "Helvetica", "Arial", sans-serif',
-    'w-light': '500',
-    'w-body': '400',
-    radius: '8px',
-    tracking: '0.08em',
-    edge: '1px',
-  },
   glowBlur: 0,
-  /* Not TrailMate's own chart colours: those (the workout palette above) sit
-     too light and too grey on the canvas to tell three lines apart. These
-     are the dataviz reference's first three dark slots, which pass every
-     palette check on #001E20 with all pairs compared. */
-  chart: { speed: '#3987E5', hr: '#D95926', incline: '#199E70' },
+  // Roboto is the system face on Android, so nothing has to ship.
+  family: '"Roboto", "Helvetica", "Arial", sans-serif',
 };
+
+/** `#rrggbb` as the bare "r,g,b" the Settings skin mixes from. */
+const rgb = (hex: string) => {
+  const n = parseInt(hex.slice(1), 16);
+  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+};
+
+/** The theme for a palette and a shape. Everything that is a mix of the
+ *  palette is worked out from it here, so changing the accent changes every
+ *  fill, ring and edge made from it. With PALETTE and SHAPE this is exactly
+ *  TrailMate (tokens.test.ts). */
+export function makeTrailmate(c: Palette = PALETTE, shape: Shape = SHAPE): Theme {
+  const surface = c.bg1;
+  const glow = shape.glowBlur > 0;
+  /* TrailMate's own in-between teals, kept exactly while its canvas and
+     surface are; under any other pair they are worked out from it, or a
+     graphite console would keep a teal backdrop, keyboard and shadow. */
+  const ownGround = c.bg0 === PALETTE.bg0 && c.bg1 === PALETTE.bg1;
+  const own = (teal: string, derived: () => string) => (ownGround ? teal : derived());
+  const deep = own('#002C2F', () => mix(c.bg0, c.bg1, 0.45)); // BRAND_SEEDS.deep — shadows are cast in it
+  const lift = ownGround && c.accent === PALETTE.accent ? '#0B4A4C' : mix(surface, c.accent, 0.15);
+  return {
+    id: 'trailmate',
+    colour: { ...c },
+    role: {
+      fill: surface,
+      fillCard: surface,
+      fillQuiet: alpha(surface, 0.5),
+      fillFloating: alpha(surface, 0.98),
+      pressed: alpha(c.accent, 0.24),
+      pressedCard: alpha(c.accent, 0.2), // TINT.overlay
+      selected: alpha(c.accent, 0.2), // TINT.fill — the tonal container
+      active: alpha(c.good, 0.2),
+      edge: alpha(c.ink, 0.2), // surfaces.hairline
+      edgeQuiet: alpha(c.ink, 0.1),
+      scrim: alpha(c.bg0, 0.97),
+      pulse: alpha(c.accent, 0.5),
+      glow: glow ? alpha(c.accent, 0.45) : 'transparent',
+      backdropInner: alpha(lift, 0.7),
+      backdropMid: alpha(surface, 0.3),
+      shadowRaised: `0 8px 18px ${alpha(deep, 0.5)}`,
+      shadowFloating: `0 16px 32px ${alpha(deep, 0.62)}, 0 4px 10px ${alpha(deep, 0.4)}`,
+      /* Over a film: a translucent black panel under the drawers, so the run
+         reads against any scene and the film still shows through. */
+      fillOverApp: alpha('#000000', 0.55),
+      /* Over a film every word is white: tone colours that read on the teal
+         canvas get lost against a picture. */
+      inkOverApp: '#FFFFFF',
+      sleepBg: '#000',
+      sleepClock: own('#0E3134', () => mix(surface, '#000000', 0.15)),
+      sleepHint: own('#0A2628', () => mix(surface, '#000000', 0.35)),
+    },
+    font: {
+      family: shape.family,
+      weightNumeral: 500,
+      weightHeading: 600,
+      weightLabel: 500,
+      weightBody: 400,
+      trackingLabel: '0.08em',
+      trackingNumeral: '-0.01em',
+    },
+    /* TrailMate's workout type colours: its chart palette in dark mode
+       (shared/design, palette.chart; constants/workoutTypes.ts says which role
+       each type takes). Pinned by tokens.test.ts. */
+    workout: {
+      easy: '#6CC89B', // chart.zone2
+      tempo: '#CF7EA8', // chart.tempo
+      intervals: '#E27F79', // chart.zone4
+      hills: '#C198CF', // chart.zone5
+      longRun: '#6FB3E3', // chart.zone1
+      recovery: '#64B28B', // chart.early
+      threshold: '#D89464', // chart.late
+      speed: '#C55E58', // chart.hr
+    },
+    radius: { ...shape.radius },
+    edgeWidth: shape.edgeWidth,
+    settings: {
+      bg: c.bg0,
+      'bg-rgb': rgb(c.bg0),
+      ink: c.ink,
+      'ink-dim': c.inkDim,
+      'ink-faint': c.inkFaint,
+      accent: c.accent,
+      'accent-rgb': rgb(c.accent),
+      line: c.trackLine,
+      'line-rgb': rgb(c.trackLine),
+      'surface-rgb': rgb(surface),
+      alert: c.alert,
+      'alert-rgb': rgb(c.alert),
+      'alert-ink': '#E5A8A3', // error.light
+      good: c.good,
+      'good-rgb': rgb(c.good),
+      warm: c.accentWarm,
+      'warm-rgb': rgb(c.accentWarm),
+      'kb-bg': own('#062F31', () => mix(surface, c.bg0, 0.3)),
+      'backdrop-inner': alpha(lift, 0.7),
+      'backdrop-mid': alpha(surface, 0.3),
+      glow: glow ? `0 0 ${shape.glowBlur}px ${alpha(c.accent, 0.5)}` : 'none',
+      font: shape.family,
+      'w-light': '500',
+      'w-body': '400',
+      radius: `${shape.radius.control}px`,
+      tracking: '0.08em',
+      edge: `${shape.edgeWidth}px`,
+    },
+    glowBlur: shape.glowBlur,
+    /* Not TrailMate's own chart colours: those (the workout palette above) sit
+       too light and too grey on the canvas to tell three lines apart. These
+       are the dataviz reference's first three dark slots, which pass every
+       palette check on #001E20 with all pairs compared. */
+    chart: { speed: '#3987E5', hr: '#D95926', incline: '#199E70' },
+  };
+}
+
+export const trailmate: Theme = makeTrailmate();

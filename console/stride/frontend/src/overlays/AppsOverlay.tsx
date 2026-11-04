@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { bridge } from '../bridge/stride';
 import type { AppEntry } from '../bridge/types';
+import { arrangeApps } from '../lib/profile';
+import { useProfile } from '../store/profile';
 import { useUi } from '../store/ui';
 import { Button, Label, Overlay, PressableCard } from '../components/primitives';
 import styles from './AppsOverlay.module.css';
@@ -24,7 +26,10 @@ export function AppsOverlay() {
 function Picker() {
   /* Asked once per opening. Kotlin builds the list (and its icons) once and
      keeps it, so a second opening is instant. */
-  const apps = useMemo(installedApps, []);
+  const all = useMemo(installedApps, []);
+  /* In the order a desktop set, without the ones it hid (docs/REMOTE.md). */
+  const profile = useProfile((s) => s.profile);
+  const apps = useMemo(() => arrangeApps(all, profile), [all, profile]);
   const close = () => useUi.getState().setAppsOpen(false);
   return (
     <Overlay
