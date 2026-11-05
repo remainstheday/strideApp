@@ -9,8 +9,12 @@ export type SettingsVar =
    one of these — no stylesheet or drawing routine carries its own colour, so a
    theme is complete by construction: miss a field and it does not compile. */
 
+/** The looks the console can wear. A profile names one as `theme.base`
+ *  (docs/REMOTE.md); with none named it is TrailMate. */
+export type ThemeId = 'trailmate' | 'carbon' | 'paper';
+
 export interface Theme {
-  id: 'trailmate';
+  id: ThemeId;
 
   /** Base palette. Solid colours, safe for canvas and SVG. */
   colour: {

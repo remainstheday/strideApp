@@ -23,6 +23,7 @@ has been Gen 6, `VKX1_…` Gen 7.
 |---|---|---|---|---|
 | NordicTrack C 1750 | Gen 6 | Treadmill | Daily use since 2026 | [nordictrack-c1750-gen6.md](nordictrack-c1750-gen6.md) |
 | NordicTrack X22i (`ETNT39225-INT`) | Gen 7 | Incline trainer | Run on, October 2026 | [nordictrack-x22i-gen7.md](nordictrack-x22i-gen7.md) |
+| NordicTrack X24 (`NTL39225`) | Gen 7 | Incline trainer | Run on; console read over adb, November 2026 | [nordictrack-x24-gen7.md](nordictrack-x24-gen7.md) |
 
 ## Add yours
 

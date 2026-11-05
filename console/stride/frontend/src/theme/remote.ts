@@ -1,19 +1,22 @@
 import type { Profile } from '../lib/profile';
 import { mix } from './alpha';
 import { cssVariables, theme } from './tokens';
-import { makeTrailmate, PALETTE, SHAPE } from './themes/trailmate';
+import { BASES } from './themes';
 import type { Theme } from './types';
 
-/** The theme a profile asks for: TrailMate with its overrides, every mix of
- *  an overridden colour worked out again. An empty profile is TrailMate. */
+/** The theme a profile asks for: the look it names (`theme.base`; TrailMate
+ *  when it names none) with its overrides, every mix of an overridden colour
+ *  worked out again. An empty profile is TrailMate. */
 export function themeFor(p: Profile): Theme {
   const t = p.theme || {};
+  const base = BASES[t.base || 'trailmate'] || BASES.trailmate;
+  const { palette: PALETTE, shape: SHAPE } = base;
   const given = t.colour || {};
   const palette = { ...PALETTE, ...given };
   /* The hairline is the ink at 20 % made solid over the canvas: a new
      canvas or ink without a hairline of its own gets one worked out. */
   if (!given.trackLine && (given.bg0 || given.ink)) palette.trackLine = mix(palette.bg0, palette.ink, 0.2);
-  return makeTrailmate(
+  return base.make(
     palette,
     {
       radius: { ...SHAPE.radius, ...(t.radius || {}) },
@@ -43,5 +46,8 @@ function assignDeep(to: Record<string, unknown>, from: Record<string, unknown>):
 export function applyProfileTheme(p: Profile, doc: Document = document): void {
   assignDeep(theme as unknown as Record<string, unknown>, themeFor(p) as unknown as Record<string, unknown>);
   const style = doc.querySelector('style[data-theme]');
-  if (style) style.textContent = cssVariables(theme);
+  if (style) {
+    style.setAttribute('data-theme', theme.id);
+    style.textContent = cssVariables(theme);
+  }
 }

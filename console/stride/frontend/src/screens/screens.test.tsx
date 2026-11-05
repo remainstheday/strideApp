@@ -699,6 +699,27 @@ describe('apps', () => {
     expect(screen.queryByText('SMALL')).toBeNull();
   });
 
+  it('keeps the run at a glance on the grip once the numbers are put away', () => {
+    render(<App />);
+    act(() => window.render({ mode: 'running', elapsed: 754, distance: 2140, speed: 10, pulse: 148 }));
+    act(() => window.overApp(true));
+    const [, stripGrip] = screen.getAllByLabelText('drawer');
+    expect(stripGrip!.textContent).toBe('');              // numbers showing: a bare bar
+    fireEvent.click(stripGrip!);
+    const glance = screen.getAllByLabelText('drawer')[1]!;
+    expect(glance.textContent).toContain('12:34');
+    expect(glance.textContent).toContain('2,140m');           // the house's own distance text
+    expect(glance.textContent).toContain('6:00/km');
+    expect(glance.textContent).toContain('148bpm');
+    // No strap, no heart rate: three figures, not a dash.
+    act(() => window.render({ mode: 'running', elapsed: 755, distance: 2143, speed: 10, pulse: 0 }));
+    expect(screen.getAllByLabelText('drawer')[1]!.textContent).not.toContain('bpm');
+    // And it is still the grip: a tap brings the numbers back.
+    fireEvent.click(screen.getAllByLabelText('drawer')[1]!);
+    expect(useUi.getState().metricsOpen).toBe(true);
+    expect(screen.getAllByLabelText('drawer')[1]!.textContent).toBe('');
+  });
+
   it('has no APPS on a console whose app cannot open them', () => {
     render(<App />);
     act(() => window.render({ mode: 'running' }));

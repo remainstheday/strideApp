@@ -112,3 +112,24 @@ export function CompactStrip() {
     </div>
   );
 }
+
+/** The run at a glance, for the top grip while the numbers are put away
+ *  over another app: time, distance, pace, and the heart rate when there is
+ *  one. Four figures, because it sits on somebody's film. */
+export function Glance() {
+  const elapsed = useField('elapsed') ?? 0;
+  const distance = useField('distance') ?? 0;
+  const speed = useField('speed');
+  const pulse = useField('pulse');
+  const u = useUnits();
+  const pace = paceSec(speed, u);
+  const dist = distanceRun(distance, u);
+  return (
+    <>
+      <b>{mmss(elapsed)}</b>
+      <b>{dist.value}<small>{dist.unit}</small></b>
+      <b>{pace ? mmss(pace) : dash}<small>{paceUnit(u)}</small></b>
+      {pulse ? <b>{pulse}<small>bpm</small></b> : null}
+    </>
+  );
+}

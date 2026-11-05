@@ -14,6 +14,11 @@ import styles from './Drawers.module.css';
    with them, so a closed drawer still shows where it went. The dock's also
    takes the rails, which have none of their own.
 
+   With the numbers put away, their grip carries the four read mid-stride
+   (time, distance, pace, heart rate) as one short pill at the top of the
+   film: the run at a glance, and still the one thing to tap to bring the
+   rest back.
+
    What is in a drawer is what takes touches over the app (see
    useTouchRegion): a closed drawer is off screen, so the app underneath gets
    that space back. */
@@ -64,12 +69,14 @@ export function SizeToggle({ compact }: { compact: boolean }) {
 }
 
 /** The bar on a drawer's inner edge: tap it to send the drawer away or bring
- *  it back. */
-export function Grip({ edge, onTap }: { edge: 'top' | 'bottom'; onTap: () => void }) {
+ *  it back. Given `children` (the glance), it is a pill holding them instead
+ *  of a bare bar. */
+export function Grip({ edge, onTap, children }: { edge: 'top' | 'bottom'; onTap: () => void; children?: ReactNode }) {
   const ref = useTap<HTMLButtonElement>(onTap);
+  const glance = children != null;
   return (
-    <button ref={ref} aria-label="drawer" className={cx(styles.grip, styles[`${edge}Grip`])}>
-      <i />
+    <button ref={ref} aria-label="drawer" className={cx(styles.grip, styles[`${edge}Grip`], glance && styles.glance)}>
+      {glance ? children : <i />}
     </button>
   );
 }

@@ -24,15 +24,16 @@ Broadcast completed: result=-1, data="eyJvayI6dHJ1ZSwi…"
 | op | does | answers |
 |---|---|---|
 | `ping` | nothing | `{ok, version, session}` |
-| `get` | reads | `{ok, schema: "stride.remote.v1", version, session, profile, settings, people, apps, devices, trailmate}` |
+| `get` | reads | `{ok, schema: "stride.remote.v1", version, session, profile, settings, people, apps, devices, trailmate, strava}` |
 | `set` | stores and applies a profile | `{ok, profile}` (as cleaned), or `{ok: false, error}` |
 | `reset` | forgets the profile; settings stay as they are | `{ok}` |
+| `strava` | connects or disconnects a runner's Strava (below) | `{ok, strava}`, or `{ok: false, error}` |
 
 `session` is `welcome`, `warmup`, `running`, `paused`, `cooldown` or
 `summary`. `settings` is the console's own value for each key a profile may
 carry, defaults filled in, as text. `apps` is `[{pkg, name}]`, asked afresh,
-without icons. `devices` and `trailmate` are what the Settings screen reads;
-neither carries a token.
+without icons. `devices`, `trailmate` and `strava` are what the Settings
+screen reads; none carries a token.
 
 ## The profile, `stride.profile.v1`
 
@@ -43,6 +44,7 @@ Every field is optional. Anything else is dropped.
   "schema": "stride.profile.v1",
   "name": "Garage",
   "theme": {
+    "base": "carbon",
     "colour": { "accent": "#6DA491", "bg0": "#001E20" },
     "radius": { "control": 8, "card": 12 },
     "font": { "family": "\"Roboto\", sans-serif" },
@@ -57,6 +59,7 @@ Every field is optional. Anything else is dropped.
 
 | | |
 |---|---|
+| `theme.base` | The look everything else is laid over: `carbon` (near-black, light figures, square corners) or `paper` (off-white, soft white cards). Absent is TrailMate. Each is a whole theme of its own (`frontend/src/theme/themes`): palette, fills, type weights, corners, chart and Settings skin. |
 | `theme.colour` | Any of `bg0 bg1 ink inkDim inkFaint accent accentWarm good alert trackLine`, `#rrggbb` only. Every fill, edge and ring mixed from one is worked out again (`makeTrailmate`), and so are TrailMate's in-between teals (backdrop, keyboard, sleep clock, shadows) once the canvas or surface changes, and the hairline once the canvas or ink does. |
 | `theme.radius` | `control chip card choice floating`, 0–40 px. |
 | `theme.font.family` | Up to 120 characters, none of `; { } < > \`. |
@@ -70,6 +73,32 @@ The profile is cleaned twice: in Kotlin before it is stored
 before it is drawn (`lib/profile.ts`). The page asks for it before its first
 frame (`Stride.profile()`), and Kotlin pushes a new one with
 `window.applyProfile`.
+
+## Strava
+
+`--es op strava --es data <base64 JSON>`. Signing in to Strava needs a
+browser, so a desktop does it and hands the console the result
+([SYNC.md](SYNC.md)).
+
+```json
+{ "action": "link", "person": "Sam", "clientId": "12345",
+  "clientSecret": "…", "refreshToken": "…", "athlete": "Sam Hill" }
+{ "action": "unlink", "person": "Sam" }
+```
+
+`person` is a name from `people`; a guest has no runs to send. The id is
+digits and the secret and token are hex, or the link is refused. The console
+seals all three with its Keystore key and never gives them back: `strava` in
+the answer, and in `get`, is
+
+```json
+{ "people": [{ "id": "sam", "name": "Sam", "linked": true, "athlete": "Sam Hill", "reconnect": false }],
+  "queued": 0, "failed": 0,
+  "last": { "workoutId": "…", "state": "sent", "detail": "…", "at": 1762280000000 } }
+```
+
+Unlike `set`, this is allowed mid-run: it changes only where the run goes
+when it ends.
 
 ## Safety
 

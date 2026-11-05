@@ -5,7 +5,7 @@ export { SpeedMenu } from './SpeedMenu';
 export { SettingsModal } from './SettingsModal';
 export { Hero } from './Hero';
 export { RunChart } from './RunChart';
-export { CompactStrip, MetricStrip } from './MetricStrip';
+export { CompactStrip, Glance, MetricStrip } from './MetricStrip';
 export { InclineRail, InclineReading, SpeedRail, SpeedReading } from './Rails';
 export { WorkoutPreview } from './WorkoutPreview';
 export { StepBand } from './StepBand';

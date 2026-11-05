@@ -4,6 +4,7 @@
    hand-edited profile must not be able to break the screen. */
 
 import type { Palette } from '../theme/themes/trailmate';
+import type { ThemeId } from '../theme/types';
 
 export type WayId = 'quick' | 'routes' | 'workouts';
 export const WAYS: readonly WayId[] = ['quick', 'routes', 'workouts'];
@@ -11,6 +12,8 @@ export const WAYS: readonly WayId[] = ['quick', 'routes', 'workouts'];
 export interface Profile {
   name?: string;
   theme?: {
+    /** Which look the rest is laid over: TrailMate when absent. */
+    base?: ThemeId;
     colour?: Partial<Palette>;
     radius?: Partial<Record<'control' | 'chip' | 'card' | 'choice' | 'floating', number>>;
     font?: { family?: string };
@@ -25,6 +28,9 @@ const HEX = /^#[0-9a-fA-F]{6}$/;
 const PACKAGE = /^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$/;
 const COLOURS: (keyof Palette)[] = ['bg0', 'bg1', 'ink', 'inkDim', 'inkFaint', 'accent', 'accentWarm', 'good', 'alert', 'trackLine'];
 const RADII = ['control', 'chip', 'card', 'choice', 'floating'] as const;
+/** The looks a profile may name. Spelled out, not read from the themes: this
+ *  file is the gate, and must not grow because a theme file did. */
+const BASES: readonly ThemeId[] = ['trailmate', 'carbon', 'paper'];
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
@@ -48,6 +54,8 @@ export function cleanProfile(raw: unknown): Profile {
   const t = raw.theme;
   if (isObj(t)) {
     const theme: NonNullable<Profile['theme']> = {};
+    // TrailMate is what an absent base means, so it is never written down.
+    if (typeof t.base === 'string' && t.base !== 'trailmate' && BASES.indexOf(t.base as ThemeId) >= 0) theme.base = t.base as ThemeId;
     if (isObj(t.colour)) {
       const colour: Partial<Palette> = {};
       for (const k of COLOURS) {

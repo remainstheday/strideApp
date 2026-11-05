@@ -60,7 +60,7 @@ src/
   bridge/                the contract with Kotlin and stride-core (types, accessors, entry points)
   store/                 Zustand: session (from Kotlin), ui (menus, sleep), welcome (choices), trailmate (schedules, routes)
   lib/                   pure logic: session rules, schedule (TrailMate plans parsed), units and formatting, the live chart's buffer, layout and painter
-  theme/                 types.ts, themes/trailmate.ts, tokens.ts (scale, CSS variables), global.css
+  theme/                 types.ts, themes/ (trailmate, carbon, paper), tokens.ts (scale, CSS variables), global.css
   hooks/                 useTap/useStepper, useClock, useIdleSleep, useScheduleFeed
   components/
     primitives/          Button, PressableCard, Text (Label, Numeral, Heading, Prose), Layout, Overlay
@@ -79,6 +79,14 @@ layout. At boot the theme is installed as CSS custom properties
 read; canvas and SVG code imports the same values. No stylesheet carries a
 colour of its own, and a test fails if any stylesheet reads a variable the
 theme does not define.
+
+**Three looks.** `themes/index.ts` lists them: TrailMate, and two minimal
+ones built by `themes/minimal.ts`, Carbon (dark) and Paper (light). A profile
+names one as `theme.base` (docs/REMOTE.md) and its own colours and corners
+are laid over that look. In a browser, `?theme=carbon` or `?theme=paper`
+wears one, with any `?screen=`. A test holds every look to the same shape and
+to contrast floors on its own canvas and cards, so a fourth is a file and a
+line in the index.
 
 The values come from the TrailMate app's design tokens (`shared/design` in
 the TrailMate repository); where it has no equivalent (the sleep screen) they

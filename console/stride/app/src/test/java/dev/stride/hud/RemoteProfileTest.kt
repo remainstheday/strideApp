@@ -24,6 +24,15 @@ class RemoteProfileTest {
         assertEquals(setOf("accent"), c.keys().asSequence().toSet())
     }
 
+    @Test fun `a look is one of the ones the page has`() {
+        assertEquals("carbon", clean("""{"theme":{"base":"carbon"}}""").getJSONObject("theme").getString("base"))
+        assertEquals("paper", clean("""{"theme":{"base":" paper "}}""").getJSONObject("theme").getString("base"))
+        // TrailMate is the absence of one, and anything else is nothing.
+        assertEquals("{}", clean("""{"theme":{"base":"trailmate"}}""").toString())
+        assertEquals("{}", clean("""{"theme":{"base":"neon;}"}}""").toString())
+        assertEquals("{}", clean("""{"theme":{"base":7}}""").toString())
+    }
+
     @Test fun `numbers are clamped to what a screen survives`() {
         val t = clean("""{"theme":{"radius":{"control":99,"card":-3,"chip":"6","choice":"x"},
             "edgeWidth":2.5,"glowBlur":1e9}}""").getJSONObject("theme")

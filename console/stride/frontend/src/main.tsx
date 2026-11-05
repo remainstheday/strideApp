@@ -3,7 +3,7 @@ import { App } from './App';
 import { core } from './bridge/stride';
 import { installKotlinEntryPoints, installModeWatcher, onModeChange } from './bridge/kotlin';
 import { useSession } from './store/session';
-import { installProfileEntryPoint, loadProfile } from './store/profile';
+import { installProfileEntryPoint, loadProfile, useProfile } from './store/profile';
 import { loadSettings } from './store/settings';
 import { useUi } from './store/ui';
 import { initWelcome } from './store/welcome';
@@ -20,6 +20,10 @@ applyTokens();
 /* A desktop's profile (docs/REMOTE.md) before the first frame, so the
    console never draws in one look and then another. */
 loadProfile();
+/* In a browser, with no console to send a profile: ?theme=carbon (or paper)
+   wears that look, so every screen can be designed in it. */
+const look = standalone && /[?&]theme=([a-z]+)/.exec(location.search);
+if (look) useProfile.getState().apply({ theme: { base: look[1] } });
 loadSettings();
 initWelcome();
 installKotlinEntryPoints();

@@ -82,7 +82,8 @@ class OverApp(
             "com.google.android.youtube", "com.google.android.youtube.tv",
             "com.amazon.avod.thirdpartyclient", "com.amazon.amazonvideo.livingroom",
             "com.disney.disneyplus", "com.wbd.stream", "com.hbo.hbonow",
-            "com.apple.atve.androidtv.appletv", "com.spotify.music",
+            "com.apple.atve.androidtv.appletv", "com.plexapp.android", "com.plexapp.android.tv",
+            "com.spotify.music",
         )
     }
 
@@ -174,6 +175,21 @@ class OverApp(
         }
         Log.i(TAG, "apps: opened $pkg")
         if (over) show()
+    }
+
+    /**
+     * STRIDE has been left for whatever is in front now, by a road that was
+     * not [open]: put the run over it all the same. UI thread, from the
+     * activity's onStop.
+     */
+    fun follow() {
+        if (showing) return
+        if (!AndroidSettings.canDrawOverlays(activity)) {
+            Log.w(TAG, "apps: left mid-run with no 'display over other apps' — the run cannot follow")
+            return
+        }
+        Log.i(TAG, "apps: left mid-run — the run follows, over what is in front")
+        show()
     }
 
     private fun show() {

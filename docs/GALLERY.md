@@ -18,6 +18,30 @@ before workouts came from TrailMate.)
 
 ![A planned run](screenshots/ui-trailmate.png)
 
+## Two minimal looks
+
+Carbon and Paper, beside TrailMate: each a whole theme, chosen from a desktop
+as a profile's `theme.base` ([REMOTE.md](REMOTE.md)). These five are from a
+browser at the console's size (`?theme=carbon`), not off a console.
+
+**Carbon.** Near-black, light figures, square corners, one lime to touch.
+
+![Carbon, a planned run](screenshots/ui-carbon.png)
+![Carbon, choosing how to run](screenshots/welcome-carbon.png)
+
+**Paper.** Off-white with soft white cards, for a bright room.
+
+![Paper, a planned run](screenshots/ui-paper.png)
+![Paper, choosing how to run](screenshots/welcome-paper.png)
+
+## Over a film, at a glance
+
+With the numbers and the controls both put away over another app, the top
+grip carries time, distance, pace and heart rate. A tap brings the rest back.
+(The picture behind is a stand-in for the film.)
+
+![The run at a glance over another app](screenshots/over-app-glance.png)
+
 ## Settings
 
 On the treadmill's own screen. No config files, no rebuild.

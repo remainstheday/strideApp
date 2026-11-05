@@ -1467,9 +1467,9 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface fun removePerson(name: String): String {
-            // Their TrailMate link goes with them. Left behind, it would be a
-            // working token belonging to nobody on this console.
-            cfg.person(name)?.let { trailmate.disconnect(it.id) }
+            // Their TrailMate and Strava links go with them. Left behind, either
+            // would be a working token belonging to nobody on this console.
+            cfg.person(name)?.let { trailmate.disconnect(it.id); strava.unlink(it.id) }
             cfg.savePeople(cfg.people().filterNot { it.name == name })
             // Whoever is mid-run keeps running; only the list changed.
             Log.i(TAG, "settings: removed $name")
@@ -1576,6 +1576,16 @@ class MainActivity : Activity() {
 
         /** A run TrailMate refused, back in the queue to try again. */
         @JavascriptInterface fun trailmateRetry(workoutId: String) = trailmate.retry(workoutId)
+
+        // --- strava ---
+        /*
+         * Connected from a desktop (the `strava` remote op), so the page can
+         * only look, let go, and send a parked run again. As with TrailMate,
+         * status says who is connected and never with what.
+         */
+        @JavascriptInterface fun stravaStatus(): String = strava.statusJson()
+        @JavascriptInterface fun stravaDisconnect(personId: String) = strava.unlink(personId)
+        @JavascriptInterface fun stravaRetry(workoutId: String) = strava.retry(workoutId)
 
         /** What the board says it can do. Reported, never set — see Settings. */
         @JavascriptInterface fun boardLimits(): String = JSONObject()
@@ -2033,7 +2043,16 @@ class MainActivity : Activity() {
      * RunRecorder. Finished runs go straight to the queue, which decides
      * whether the runner is connected and so whether it leaves the console.
      */
-    private val recorder by lazy { RunRecorder(this) { id, w -> trailmate.enqueue(id, w) } }
+    private val recorder by lazy {
+        RunRecorder(this) { id, w ->
+            trailmate.enqueue(id, w)
+            // The simulated board's runs are pretend, and Strava is real.
+            if (sim == null) strava.enqueue(id, w)
+        }
+    }
+
+    /** Finished runs to Strava, for whoever has connected it. See [Strava]. */
+    private val strava by lazy { Strava(this, cfg) }
 
     /**
      * Start or feed the recording, from the poll loop.
@@ -2703,6 +2722,7 @@ class MainActivity : Activity() {
         // Anything queued last time goes as soon as there is a network, and a
         // run the console did not live to finish is turned into a workout.
         trailmate.start()
+        strava.start()
         trailmate.onLinked = { sync.request(it, force = true) }
         trailmate.syncInfo = { tmView.sync(it) }
         sync.onRead = { id, kind, ok ->
@@ -2846,6 +2866,7 @@ class MainActivity : Activity() {
                 .put("trailmate", JSONObject(bridge.trailmateStatus()).apply {
                     optJSONObject("link")?.remove("qr")
                 })
+                .put("strava", JSONObject(strava.statusJson()))
             "set" -> {
                 if (runUnderWay()) {
                     return JSONObject().put("ok", false)
@@ -2873,6 +2894,23 @@ class MainActivity : Activity() {
                 pushProfile(JSONObject())
                 ok()
             }
+            // Connecting somebody to Strava, from the desktop that signed
+            // them in (see Strava). Allowed mid-run: it changes nothing a
+            // runner can see or feel, only where the run goes afterwards.
+            "strava" -> {
+                val d = JSONObject(String(android.util.Base64.decode(data ?: "", android.util.Base64.DEFAULT), Charsets.UTF_8))
+                val person = cfg.person(d.optString("person"))
+                    ?: return JSONObject().put("ok", false)
+                        .put("error", "Nobody called \"${d.optString("person")}\" on this console. Add them under People first.")
+                val error = when (d.optString("action")) {
+                    "link" -> strava.link(person.id, d.optString("clientId"), d.optString("clientSecret"),
+                        d.optString("refreshToken"), d.optString("athlete"))
+                    "unlink" -> { strava.unlink(person.id); null }
+                    else -> "unknown action"
+                }
+                if (error != null) JSONObject().put("ok", false).put("error", error)
+                else ok().put("strava", JSONObject(strava.statusJson()))
+            }
             else -> JSONObject().put("ok", false).put("error", "unknown op")
         }
     }
@@ -2892,6 +2930,24 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         overApp.reclaim()
+    }
+
+    /**
+     * Left mid-run by a road other than APPS: the system's Home or Recents,
+     * or another app opening itself. The run goes along, drawn over whatever
+     * is in front now exactly as it is over an app opened from APPS (see
+     * [OverApp.follow]). A belt that is moving while its numbers and its STOP
+     * are off the screen is the one state this console should never be in.
+     *
+     * Not when the screen has simply gone off, which also stops the
+     * activity: there is nothing in front to draw over, and [onResume] finds
+     * the page where it was.
+     */
+    override fun onStop() {
+        super.onStop()
+        if (isFinishing || isChangingConfigurations || !runUnderWay()) return
+        val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+        if (pm.isInteractive) overApp.follow()
     }
 
     /**

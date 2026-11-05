@@ -5,7 +5,7 @@ import { useUi } from '../../store/ui';
 import { Fill } from '../../components/primitives';
 import { StatusChip } from '../../components/molecules';
 import {
-  CompactStrip, ControlBar, Drawer, FanMenu, Grip, Hero, InclineRail, InclineReading, MetricStrip,
+  CompactStrip, ControlBar, Drawer, FanMenu, Glance, Grip, Hero, InclineRail, InclineReading, MetricStrip,
   SettingsModal, SizeToggle, SpeedMenu, SpeedRail, SpeedReading, StepBand, toggleControls, toggleMetrics,
 } from '../../components/organisms';
 
@@ -19,7 +19,8 @@ import {
  *  Over another app (APPS) the hero goes, the middle is the app's picture, and
  *  the edges are drawers: the numbers slide off the top, the rails and dock
  *  off the sides and bottom. The numbers can be made one short line along the
- *  top (SMALL, beside their grip), so the film keeps more of the screen. */
+ *  top (SMALL, beside their grip), so the film keeps more of the screen; put
+ *  away altogether, their grip still shows the run at a glance. */
 /** How deep the bottom edge is: the dock, and a workout's step band on it.
  *  Everything that stops above it (rails, chart, drawer grip) reads this. */
 const dockDepth = (workout: boolean) => ({ '--dock-h': workout ? '220px' : '104px' }) as CSSProperties;
@@ -62,7 +63,8 @@ export function WorkoutScreen() {
           controls. Last, so the strip and its grip are over the rails. */}
       <Drawer edge="top" open={metricsOpen} small={metricsCompact}>
         {metricsCompact ? <CompactStrip /> : strip}
-        <Grip edge="top" onTap={toggleMetrics} />
+        {/* Put away, the grip is the glance: time, distance, pace and heart rate. */}
+        <Grip edge="top" onTap={toggleMetrics}>{metricsOpen ? undefined : <Glance />}</Grip>
         {/* Only with the numbers showing: a closed drawer leaves its grip and nothing else. */}
         {metricsOpen && <SizeToggle compact={metricsCompact} />}
       </Drawer>

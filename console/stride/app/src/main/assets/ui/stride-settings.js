@@ -789,6 +789,54 @@
     url.classList.add('sx-url');
     g.appendChild(row('Server', 'Leave blank for foolishrunner.com.', url));
     sc.appendChild(g);
+
+    /* Strava. Connected from Treadmill Manager on a desktop, because Strava
+       signs people in with a web page; here it can be seen, and let go.
+       Kotlin's stravaStatus says who is connected, never with what. */
+    var gs = group('Strava');
+    var box = el('div');
+    gs.appendChild(box);
+    sc.appendChild(gs);
+    var drawn = null;
+    function state(dot, text) {
+      return '<span class="sx-state"><i class="sx-dot ' + dot + '"></i>' + text + '</span>';
+    }
+    function drawStrava() {
+      var st = null;
+      if (has('stravaStatus')) { try { st = JSON.parse(bridge().stravaStatus()); } catch (e) {} }
+      var key = JSON.stringify(st);
+      if (key === drawn) return;
+      drawn = key;
+      box.innerHTML = '';
+      var linked = st ? st.people.filter(function (p) { return p.linked; }) : [];
+      if (!linked.length) {
+        box.appendChild(row('Nobody connected',
+          'Connect from Treadmill Manager on a Mac, under Builder, Integrations. ' +
+          'Each finished run is then sent to Strava as an indoor run.', el('div')));
+        return;
+      }
+      linked.forEach(function (p) {
+        box.appendChild(row(esc(p.name),
+          p.reconnect ? state('sx-bad', 'Strava needs connecting again, from Treadmill Manager')
+                      : state('sx-ok', 'Connected' + (p.athlete ? ' as ' + esc(p.athlete) : '')),
+          press(el('button', 'sx-pill sx-warn', 'DISCONNECT'), function () {
+            bridge().stravaDisconnect(p.id);
+            drawStrava();
+          })));
+      });
+      var last = st.last;
+      var words = st.queued ? state('sx-busy', st.queued + ' waiting' + (last && last.detail ? ': ' + esc(last.detail) : ''))
+        : last && last.state === 'sent' ? state('sx-ok', 'Last run sent')
+        : last && last.state === 'failed' ? state('sx-bad', 'Last run not taken: ' + esc(last.detail))
+        : state('sx-ok', 'None waiting');
+      var again = el('div');
+      if (last && last.state === 'failed' && has('stravaRetry')) {
+        again = press(el('button', 'sx-pill', 'RETRY'), function () { bridge().stravaRetry(last.workoutId); });
+      }
+      box.appendChild(row('Runs to send', words, again));
+    }
+    drawStrava();
+    pane.sxTick = drawStrava;
   }
 
   // --- trailmate: the runner's own link ---

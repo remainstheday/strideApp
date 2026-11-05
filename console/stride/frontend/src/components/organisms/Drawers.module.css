@@ -69,6 +69,37 @@ button.grip {
   margin: -3px 0 0 -32px;
 }
 
+/* The top grip as the glance: as wide as its numbers, centred where the bar
+   was, a little taller so the figures can be read from the belt. */
+.topGrip.glance {
+  width: auto;
+  height: 44px;
+  margin-left: 0;
+  padding: 0 22px;
+  border-radius: 22px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-family: var(--font-family);
+  font-size: var(--font-lead);
+  /* The label weight, not the numeral's: a light figure is lost on a film. */
+  font-weight: var(--weight-label);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-numeral);
+  line-height: 44px;
+}
+.glance b {
+  font-weight: inherit;
+}
+.glance b + b {
+  margin-left: 22px;
+}
+.glance small {
+  margin-left: 4px;
+  font-size: var(--font-label);
+  letter-spacing: 0;
+  opacity: 0.75;
+}
+
 /* To the right of the top grip, at the same height: SMALL or LARGE. The
    house chip button, made the grip's height so the two read as a pair. */
 .drawer > .sizeToggle {

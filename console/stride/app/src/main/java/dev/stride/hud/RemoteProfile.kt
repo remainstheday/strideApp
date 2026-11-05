@@ -27,6 +27,10 @@ object RemoteProfile {
     )
     val RADII = listOf("control", "chip", "card", "choice", "floating")
 
+    /** The looks a profile may name as `theme.base` (frontend theme/themes).
+     *  TrailMate is what no base means, so it is never stored. */
+    val BASES = listOf("carbon", "paper")
+
     /** The welcome screen's ways in, in their default order (HowStep.tsx). */
     val WAYS = listOf("quick", "routes", "workouts")
 
@@ -54,6 +58,7 @@ object RemoteProfile {
 
     private fun theme(t: JSONObject): JSONObject {
         val out = JSONObject()
+        (t.opt("base") as? String)?.trim()?.takeIf { it in BASES }?.let { out.put("base", it) }
         t.optJSONObject("colour")?.let { c ->
             val colour = JSONObject()
             for (k in COLOURS) (c.opt(k) as? String)?.trim()?.takeIf { HEX.matches(it) }
